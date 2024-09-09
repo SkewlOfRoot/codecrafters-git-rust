@@ -1,5 +1,5 @@
 use anyhow::{anyhow, Ok};
-use clap::{Args, Parser, Subcommand};
+use clap::{Parser, Subcommand};
 use flate2::read::ZlibDecoder;
 use std::io::{BufReader, Read};
 use std::{env, fs};
@@ -8,6 +8,9 @@ use std::{env, fs};
 #[clap(version, about, long_about = None)]
 #[command(propagate_version = true)]
 struct Cli {
+    #[arg(short, long)]
+    pretty_print: Option<bool>,
+
     #[command(subcommand)]
     commands: Commands,
 }
@@ -15,15 +18,12 @@ struct Cli {
 #[derive(Subcommand)]
 enum Commands {
     Init,
-    #[command(name = "cat-file")]
-    CatFile(CatFileArgs),
-}
+    CatFile {
+        object_id: String,
 
-#[derive(Args)]
-struct CatFileArgs {
-    #[arg(short, long)]
-    pretty_print: Option<bool>,
-    object: String,
+        #[arg(long, short)]
+        pretty: bool,
+    },
 }
 
 fn main() -> anyhow::Result<()> {
@@ -40,8 +40,8 @@ fn main() -> anyhow::Result<()> {
             println!("Initialized git directory");
             Ok(())
         }
-        Commands::CatFile(args) => {
-            let result = cat_file(args.object)?;
+        Commands::CatFile { object_id, pretty } => {
+            let result = cat_file(object_id)?;
             print!("{}", result.content);
             Ok(())
         }
