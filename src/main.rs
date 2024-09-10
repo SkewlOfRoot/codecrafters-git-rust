@@ -1,7 +1,11 @@
-use anyhow::{anyhow, Ok};
+use anyhow::{anyhow, Context, Ok};
 use clap::{Parser, Subcommand};
 use flate2::read::ZlibDecoder;
-use std::io::{BufReader, Read};
+use flate2::write::ZlibEncoder;
+use flate2::Compression;
+use sha1::{Digest, Sha1};
+use std::io::{BufReader, Read, Write};
+use std::path::Path;
 use std::{env, fs};
 
 #[derive(Parser)]
@@ -24,6 +28,12 @@ enum Commands {
         #[arg(long, short)]
         pretty: bool,
     },
+    HashObject {
+        file_path: String,
+
+        #[arg(long, short)]
+        write: bool,
+    },
 }
 
 fn main() -> anyhow::Result<()> {
@@ -45,6 +55,11 @@ fn main() -> anyhow::Result<()> {
             print!("{}", result.content);
             Ok(())
         }
+        Commands::HashObject { file_path, write } => {
+            let sha_hash = hash_object(file_path, write)?;
+            print!("{}", sha_hash);
+            Ok(())
+        }
     }
 }
 
@@ -54,7 +69,7 @@ fn cat_file(object_id: String) -> anyhow::Result<GitObject> {
     let object_path = format!("./.git/objects/{}/{}", folder, file_name);
 
     let content = load_object_content(object_path)?;
-    Ok(GitObject::new(&content)?)
+    Ok(GitObject::from_bytes(&content)?)
 }
 
 fn load_object_content(object_path: String) -> Result<Vec<u8>, anyhow::Error> {
@@ -68,6 +83,46 @@ fn load_object_content(object_path: String) -> Result<Vec<u8>, anyhow::Error> {
     Ok(buffer)
 }
 
+fn hash_object(file_path: String, write: bool) -> anyhow::Result<String> {
+    let file_content = fs::read_to_string(file_path)?;
+    let content_length = file_content.len();
+    let object_content = format!("blob {}{}{}", content_length, 0x00, file_content);
+
+    let sha_hash = calculate_sha_hash(&object_content);
+    let sha_hash = hex::encode(sha_hash);
+
+    if write {
+        let zlib_content = zlib_compress(&object_content)?;
+        let folder: String = sha_hash.chars().take(2).collect();
+        let object_file_name: String = sha_hash.chars().skip(2).collect();
+        let full_path = format!("./.git/objects/{}/{}", folder, object_file_name);
+        let full_path = Path::new(&full_path);
+
+        if let Some(parent) = full_path.parent() {
+            fs::create_dir_all(parent)?;
+        }
+
+        fs::write(full_path, zlib_content).context("Write object file.")?
+    }
+
+    Ok(sha_hash)
+}
+
+fn zlib_compress(object_content: &str) -> anyhow::Result<Vec<u8>> {
+    let mut encoder = ZlibEncoder::new(Vec::new(), Compression::default());
+    encoder.write_all(object_content.as_bytes())?;
+    let compressed = encoder.finish()?;
+    Ok(compressed)
+}
+
+fn calculate_sha_hash(object_content: &str) -> Vec<u8> {
+    let mut hasher = Sha1::new();
+    hasher.update(object_content.as_bytes());
+    let result = hasher.finalize();
+
+    result[..].to_vec()
+}
+
 #[derive(Debug)]
 struct GitObject {
     object_type: ObjectType,
@@ -76,7 +131,7 @@ struct GitObject {
 }
 
 impl GitObject {
-    fn new(input: &[u8]) -> anyhow::Result<GitObject> {
+    fn from_bytes(input: &[u8]) -> anyhow::Result<GitObject> {
         // Split on null byte
         let parts: Vec<&[u8]> = input.split(|&byte| byte == 0x00).collect();
         let content = parts.last().unwrap();
