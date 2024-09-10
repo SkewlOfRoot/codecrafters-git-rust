@@ -86,7 +86,7 @@ fn load_object_content(object_path: String) -> Result<Vec<u8>, anyhow::Error> {
 fn hash_object(file_path: String, write: bool) -> anyhow::Result<String> {
     let file_content = fs::read_to_string(file_path)?;
     let content_length = file_content.len();
-    let object_content = format!("blob {}{}{}", content_length, 0x00, file_content);
+    let object_content = format!("blob {}{}{}", content_length, '\0', file_content);
 
     let sha_hash = calculate_sha_hash(&object_content);
     let sha_hash = hex::encode(sha_hash);
