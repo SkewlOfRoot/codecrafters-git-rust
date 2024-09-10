@@ -48,7 +48,11 @@ fn main() -> anyhow::Result<()> {
     }
 }
 
-fn cat_file(object_path: String) -> anyhow::Result<GitObject> {
+fn cat_file(object_id: String) -> anyhow::Result<GitObject> {
+    let folder: String = object_id.chars().take(2).collect();
+    let file_name: String = object_id.chars().skip(2).collect();
+    let object_path = format!("./.git/objects/{}/{}", folder, file_name);
+
     let content = load_object_content(object_path)?;
     Ok(GitObject::new(&content)?)
 }
@@ -62,19 +66,6 @@ fn load_object_content(object_path: String) -> Result<Vec<u8>, anyhow::Error> {
     decoder.read_to_end(&mut buffer)?;
 
     Ok(buffer)
-}
-
-fn to_object_type(object_type_bytes: &[u8]) -> Result<ObjectType, anyhow::Error> {
-    let object_type = String::from_utf8(object_type_bytes.to_vec())?;
-
-    let object_type = match object_type.as_str() {
-        "blob" => ObjectType::Blob,
-        "tree" => ObjectType::Tree,
-        "commit" => ObjectType::Commit,
-        _ => return Err(anyhow!("Invalid object type.")),
-    };
-
-    Ok(object_type)
 }
 
 #[derive(Debug)]
@@ -106,6 +97,19 @@ impl GitObject {
             content,
         })
     }
+}
+
+fn to_object_type(object_type_bytes: &[u8]) -> Result<ObjectType, anyhow::Error> {
+    let object_type = String::from_utf8(object_type_bytes.to_vec())?;
+
+    let object_type = match object_type.as_str() {
+        "blob" => ObjectType::Blob,
+        "tree" => ObjectType::Tree,
+        "commit" => ObjectType::Commit,
+        _ => return Err(anyhow!("Invalid object type.")),
+    };
+
+    Ok(object_type)
 }
 
 #[derive(Debug)]
