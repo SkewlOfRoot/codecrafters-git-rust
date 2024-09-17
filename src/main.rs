@@ -136,7 +136,7 @@ fn ls_tree(object_id: String, name_only: bool) -> anyhow::Result<()> {
     match tree_object {
         Object::Tree(tree) => {
             let names: Vec<String> = tree.elements.iter().map(|x| x.name.clone()).collect();
-            print!("{}", names.join("\n"));
+            println!("{}", names.join("\n"));
             Ok(())
         }
         _ => Err(anyhow!("Invalid object type.")),
