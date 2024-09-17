@@ -230,7 +230,7 @@ impl TreeObject {
         let length = header_iter.next().unwrap();
         let length: u32 = String::from_utf8(length.to_vec())?.parse::<u32>()?;
 
-        println!("content: {:#?}", String::from_utf8_lossy(content_bytes));
+        //println!("content: {:#?}", String::from_utf8_lossy(content_bytes));
         //println!("content bytes: {:#?}", content_bytes);
 
         let mut elements: Vec<TreeElement> = Vec::new();
@@ -263,11 +263,16 @@ impl TreeObject {
 impl TreeElement {
     fn from_bytes(input: &[u8]) -> anyhow::Result<TreeElement> {
         //println!("input element: {:#?}", input);
+        // Read bytes until space.
+        let mode_bytes = match input.iter().position(|&byte| byte == 32) {
+            Some(pos) => &input[..pos],
+            None => input,
+        };
 
-        let mode = String::from_utf8(input[..6].to_vec())?;
+        let mode = String::from_utf8(mode_bytes.to_vec())?;
         //println!("mode: {:#?}", mode);
 
-        let content_iter = input[7..].iter();
+        let content_iter = input[mode_bytes.len() + 1..].iter();
 
         let mut name_bytes: Vec<u8> = Vec::new();
         for b in content_iter {
@@ -279,7 +284,7 @@ impl TreeElement {
         let name = String::from_utf8(name_bytes)?;
         //println!("name: {:#?}", name);
 
-        let hash_begin_pos = 7 + 1 + name.len();
+        let hash_begin_pos = mode_bytes.len() + 1 + name.len();
         let hash: Vec<u8> = input[hash_begin_pos..hash_begin_pos + 20].to_vec();
         //println!("hash: {:#?}", hex::encode(&hash));
 
