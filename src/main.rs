@@ -230,7 +230,7 @@ impl TreeObject {
         let length = header_iter.next().unwrap();
         let length: u32 = String::from_utf8(length.to_vec())?.parse::<u32>()?;
 
-        //println!("content: {:#?}", String::from_utf8_lossy(content_bytes));
+        println!("content: {:#?}", String::from_utf8_lossy(content_bytes));
         //println!("content bytes: {:#?}", content_bytes);
 
         let mut elements: Vec<TreeElement> = Vec::new();
