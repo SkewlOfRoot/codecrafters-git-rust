@@ -167,17 +167,20 @@ fn load_git_object(object_id: String) -> anyhow::Result<Object> {
     }
 }
 
+#[allow(dead_code)]
 struct BlobObject {
     length: u32,
     content: String,
 }
 
+#[allow(dead_code)]
 struct TreeObject {
     length: u32,
     elements: Vec<TreeElement>,
 }
 
 #[derive(Debug)]
+#[allow(dead_code)]
 struct TreeElement {
     mode: String,
     object_type: ObjectType,
