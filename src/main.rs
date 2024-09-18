@@ -56,18 +56,19 @@ fn main() -> anyhow::Result<()> {
             println!("Initialized git directory");
             Ok(())
         }
-        Commands::CatFile { object_id, pretty } => {
+        Commands::CatFile {
+            object_id,
+            pretty: _,
+        } => {
             let result = cat_file(object_id)?;
             match result {
                 Object::Blob(blob) => {
                     print!("{}", blob.content);
                 }
-                Object::Tree(tree) => {
+                Object::Tree(_tree) => {
                     print!("TODO");
                 }
             }
-            //println!("{:#?} - {}", result.object_type, result.content);
-            //print!("{}", result.content);
             Ok(())
         }
         Commands::HashObject { file_path, write } => {
@@ -135,8 +136,20 @@ fn ls_tree(object_id: String, name_only: bool) -> anyhow::Result<()> {
 
     match tree_object {
         Object::Tree(tree) => {
-            let names: Vec<String> = tree.elements.iter().map(|x| x.name.clone()).collect();
-            println!("{}", names.join("\n"));
+            if name_only {
+                let names: Vec<String> = tree.elements.iter().map(|x| x.name.clone()).collect();
+                println!("{}", names.join("\n"));
+            } else {
+                for element in tree.elements {
+                    println!(
+                        "{:0>8} {} {}",
+                        element.mode,
+                        hex::encode(element.hash),
+                        element.name
+                    );
+                }
+            }
+
             Ok(())
         }
         _ => Err(anyhow!("Invalid object type.")),
@@ -233,9 +246,6 @@ impl TreeObject {
         let length = header_iter.next().unwrap();
         let length: u32 = String::from_utf8(length.to_vec())?.parse::<u32>()?;
 
-        //println!("content: {:#?}", String::from_utf8_lossy(content_bytes));
-        //println!("content bytes: {:#?}", content_bytes);
-
         let mut elements: Vec<TreeElement> = Vec::new();
 
         let mut current_pos: usize = 0;
@@ -246,10 +256,6 @@ impl TreeObject {
             if byte == 0 {
                 let hash_bytes: &[u8] = &content_bytes[current_pos..current_pos + 1 + 20];
                 element_bytes.extend_from_slice(hash_bytes);
-                // println!(
-                //     "element bytes: {:#?}",
-                //     String::from_utf8_lossy(&element_bytes)
-                // );
                 elements.push(TreeElement::from_bytes(&element_bytes)?);
                 current_pos += 21;
                 element_bytes.clear();
@@ -258,14 +264,13 @@ impl TreeObject {
                 current_pos += 1;
             }
         }
-        //println!("elements: {:#?}", elements);
+
         Ok(TreeObject { length, elements })
     }
 }
 
 impl TreeElement {
     fn from_bytes(input: &[u8]) -> anyhow::Result<TreeElement> {
-        //println!("input element: {:#?}", input);
         // Read bytes until space.
         let mode_bytes = match input.iter().position(|&byte| byte == 32) {
             Some(pos) => &input[..pos],
@@ -273,7 +278,6 @@ impl TreeElement {
         };
 
         let mode = String::from_utf8(mode_bytes.to_vec())?;
-        //println!("mode: {:#?}", mode);
 
         let content_iter = input[mode_bytes.len() + 1..].iter();
 
@@ -285,11 +289,9 @@ impl TreeElement {
             name_bytes.push(*b);
         }
         let name = String::from_utf8(name_bytes)?;
-        //println!("name: {:#?}", name);
 
         let hash_begin_pos = mode_bytes.len() + 1 + name.len();
         let hash: Vec<u8> = input[hash_begin_pos..hash_begin_pos + 20].to_vec();
-        //println!("hash: {:#?}", hex::encode(&hash));
 
         Ok(TreeElement {
             mode,
